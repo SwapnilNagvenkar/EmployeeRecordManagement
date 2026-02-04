@@ -1,0 +1,54 @@
+﻿name: Build and deploy ASP.NET Core app to Azure
+
+on:
+  push:
+    branches:
+      - master  # Make sure your GitHub branch is named 'main'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET Core
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.x' # Ensure this matches your project version
+
+      - name: Restore dependencies
+        run: dotnet restore EmployeeRecordManagement/EmployeeRecordManagement.csproj
+
+      - name: Build
+        run: dotnet build EmployeeRecordManagement/EmployeeRecordManagement.csproj --configuration Release --no-restore
+
+      - name: dotnet publish
+        run: dotnet publish EmployeeRecordManagement/EmployeeRecordManagement.csproj -c Release -o ${{env.DOTNET_ROOT}}/myapp
+
+      - name: Upload artifact for deployment job
+        uses: actions/upload-artifact@v4
+        with:
+          name: .net-app
+          path: ${{env.DOTNET_ROOT}}/myapp
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: 'Production'
+
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: .net-app
+          path: .
+
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'emprcrdmang-test' # Your Azure Web App Name
+          publish-profile: ${{ secrets.AZURE_APP_SERVICE_PUBLISH_PROFILE }}
+          package: .
